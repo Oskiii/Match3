@@ -26,7 +26,7 @@ public class Gem : MonoBehaviour {
 
     public Vector2Int PositionInGrid = new Vector2Int();
 
-	private Board _board;
+    private Board _board;
 
     private void OnEnable(){
         Color randomColor = _gemColorValues.ElementAt(Random.Range(0, _gemColorValues.Keys.Count)).Value;
