@@ -28,7 +28,6 @@ public class Match3Logic : MonoBehaviour {
     }
 
     private void GemRemoved(Gem gem){
-        RefillGemColumn(gem.PositionInGrid.x, gem.PositionInGrid.y);
         MoveGemsDown(gem.PositionInGrid.x, gem.PositionInGrid.y);
     }
 
@@ -40,62 +39,18 @@ public class Match3Logic : MonoBehaviour {
 
             g.PositionInGrid.y--;
         }
-        _board.ResolveGrid();
-        //CheckMatches();
+        RefillGemColumn(x, aboveY);
+
+        CheckMatches();
     }
 
     private void RefillGemColumn(int x, int y)
     {
-
+        _board.AddGemAt(x, _board.Rows - 1, x, _board.Rows + y);
     }
 
     private void CheckMatches(){
-        CheckMatchesHorizontal();
-        CheckMatchesVertical();
         _board.ResolveGrid();
-    }
-
-    private void CheckMatchesHorizontal(){
-        List<Gem> matches = new List<Gem>();
-
-        // Loop through rows
-        for (int row = 0; row < _board.Rows; row++)
-        {
-            // Loop through columns
-            for(int column = 0; column < _board.Columns - 2; ){
-                Gem gem = _board.GetGemAt(column, row);
-
-                if(gem == null) continue;
-
-                GemColor matchColor = gem.Color;
-
-                Gem next1 = _board.GetGemAt(column + 1, row);
-                Gem next2 = _board.GetGemAt(column + 2, row);
-
-                if(next1.Color == matchColor && next2.Color == matchColor){
-                    List<Gem> chain = new List<Gem>();
-
-                    int safe = 0;
-                    do{
-                        chain.Add(gem);
-                        column++;
-                        safe++;
-
-                    // null error
-                    }while(safe < 500 && column < _board.Columns && _board.GetGemAt(column + 1, row)?.Color == gem.Color);
-
-                    matches.AddRange(chain);
-                }
-
-                column++;
-            }
-        }
-
-        print(matches.Count);
-        foreach (Gem gem in matches)
-        {
-            _board.RemoveGem(gem);
-        }
     }
 
     private void CheckMatchesVertical(){

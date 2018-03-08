@@ -4,83 +4,54 @@ using System.Collections.Generic;
 using NaughtyAttributes;
 using QuickPool;
 using UnityEngine;
-using DG.Tweening;
 
 public class Board : MonoBehaviour {
 
-	[SerializeField] private Gem _gemPrefab;
-	public List<Gem> GemsOnBoard {get; private set;} = new List<Gem>();
-	private Pool _gemPool = new Pool(){size = 100, allowGrowth = true};
+    [SerializeField] private Gem _gemPrefab;
+    public List<Gem> GemsOnBoard {get; private set;} = new List<Gem>();
+    private Pool _gemPool = new Pool(){size = 100, allowGrowth = true};
 
-	public int Columns{get; private set;} = 5;
-	public int Rows{get; private set;} = 5;
+    public int Columns{get; private set;} = 5;
+    public int Rows{get; private set;} = 5;
 
-	public event Action<Gem> OnGemRemoved;
-	[SerializeField] private float _gemWidth = 1f;
+    public event Action<Gem> OnGemRemoved;
 
-	public int Capacity{
-		get{
-			return Columns * Rows;
-		}
-	}
+    public int Capacity{
+        get{
+            return Columns * Rows;
+        }
+    }
 
-	private void Awake(){
-		PoolsManager.RegisterPool(_gemPool);
-		_gemPool.Prefab = _gemPrefab.gameObject;
-		_gemPool.Initialize();
-	}
+    private void Awake(){
+        PoolsManager.RegisterPool(_gemPool);
+        _gemPool.Prefab = _gemPrefab.gameObject;
+        _gemPool.Initialize();
+    }
 
-	public void AddGemAt(int gridX, int gridY, int? spawnGridX = null, int? spawnGridY = null){
+    public void AddGemAt(int gridX, int gridY){
 
-		Gem newGem = _gemPool.Spawn<Gem>(Vector3.zero, Quaternion.identity);
-		newGem.PositionInGrid.Set(gridX, gridY);
-		GemsOnBoard.Add(newGem);
-		newGem.SetBoard(this);
-		newGem.transform.SetParent(transform);
+        Gem newGem = _gemPool.Spawn<Gem>(Vector3.zero, Quaternion.identity);
+        newGem.transform.SetParent(transform);
+        GemsOnBoard.Add(newGem);
 
-		Vector2Int spawnGridPos = Vector2Int.zero;
-		if(spawnGridX != null){
-			spawnGridPos.x = (int)spawnGridX;
-		}
-		if(spawnGridY != null){
-			spawnGridPos.y = (int)spawnGridY;
-		}
+        newGem.Init(this, gridX, gridY);
+    }
 
-		newGem.transform.position = CalculateWorldPosition(spawnGridPos.x, spawnGridPos.y);
-		ResolveGrid();
-	}
+    public void RemoveGem(Gem gem){
+        GemsOnBoard.Remove(gem);
+        _gemPool.Despawn(gem.gameObject);
 
-	public void RemoveGem(Gem gem){
-		GemsOnBoard.Remove(gem);
-		_gemPool.Despawn(gem.gameObject);
+        OnGemRemoved(gem);
+    }
 
-		OnGemRemoved(gem);
-	}
+    public Gem GetGemAt(int x, int y){
+        // If coordinates out of bounds
+        if(x < 0 || x > Columns - 1 || y < 0 || y > Rows - 1)
+        {
+            return null;
+        }
 
-	[Button]
-	public void ResolveGrid(){
-		foreach (Gem gem in GemsOnBoard)
-		{
-			MoveGemToCorrectPosition(gem);
-		}
-	}
-
-	public void MoveGemToCorrectPosition(Gem gem){
-		
-		int x = gem.PositionInGrid.x;
-		int y = gem.PositionInGrid.y;
-
-		Vector2 pos = CalculateWorldPosition(x, y);
-		gem.transform.DOMove(pos, 0.3f).SetEase(Ease.InQuart);
-		gem.PositionInGrid = new Vector2Int(x, y);
-	}
-
-	private Vector2 CalculateWorldPosition(int gridX, int gridY){
-		return new Vector2(gridX * _gemWidth, gridY * _gemWidth);
-	}
-
-	public Gem GetGemAt(int x, int y){
-		Gem found = GemsOnBoard.Find(g => g.PositionInGrid.x == x && g.PositionInGrid.y == y);
-		return found;
-	}
+        Gem found = GemsOnBoard[y * Columns + x];
+        return found;
+    }
 }
