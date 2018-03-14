@@ -1,53 +1,47 @@
-﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
-using UnityEngine.EventSystems;
 using DG.Tweening;
+using UnityEngine;
 
-public enum GemColor {
-        Red,
-        Blue,
-        Yellow,
-        Green,
+public enum GemColor
+{
+    RED,
+    BLUE,
+    YELLOW,
+    GREEN
 }
 
 public enum Direction
 {
-    Up,
-    Down,
-    Left,
-    Right
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
 }
 
-public class Gem : MonoBehaviour {
+public class Gem : MonoBehaviour
+{
+    [SerializeField] private const float Width = 1f;
+    [SerializeField] private const float Height = 1f;
 
-    [SerializeField] private SpriteRenderer _visuals;
-    [SerializeField] private const float _width = 1f;
-    [SerializeField] private const float _height = 1f;
-
-    private Dictionary<GemColor, Color32> _gemColorValues = new Dictionary<GemColor, Color32>(){
-        { GemColor.Blue, new Color32(50,124,203, 255) },
-        { GemColor.Green, new Color32(195,255,104, 255) },
-        { GemColor.Red, new Color32(254,67,101, 255) },
-        { GemColor.Yellow, new Color32(246,231,103, 255) },
-    };
-
-    public Dictionary<Direction, Gem> Neighbors = new Dictionary<Direction, Gem>()
+    private readonly Dictionary<GemColor, Color32> _gemColorValues = new Dictionary<GemColor, Color32>
     {
-        { Direction.Up, null },
-        { Direction.Down, null },
-        { Direction.Left, null },
-        { Direction.Right, null },
+        {GemColor.BLUE, new Color32(50, 124, 203, 255)},
+        {GemColor.GREEN, new Color32(195, 255, 104, 255)},
+        {GemColor.RED, new Color32(254, 67, 101, 255)},
+        {GemColor.YELLOW, new Color32(246, 231, 103, 255)}
     };
-
-    public GemColor Color;
-
-    public Vector2Int PositionInGrid = new Vector2Int();
 
     private Board _board;
 
-    private void OnEnable(){
+    [SerializeField] private SpriteRenderer _visuals;
+
+    public GemColor Color;
+
+    public Vector2Int PositionInGrid;
+
+    private void OnEnable()
+    {
         Color randomColor = _gemColorValues.ElementAt(Random.Range(0, _gemColorValues.Keys.Count)).Value;
         _visuals.color = randomColor;
     }
@@ -64,34 +58,9 @@ public class Gem : MonoBehaviour {
         transform.position = CalculateWorldPosition(x, y);
     }
 
-    public void FindNeighbors()
+    private void Break()
     {
-        SetNeighbor(Direction.Up, _board.GetGemAt(PositionInGrid.x, PositionInGrid.y + 1));
-        SetNeighbor(Direction.Down, _board.GetGemAt(PositionInGrid.x, PositionInGrid.y - 1));
-        SetNeighbor(Direction.Left, _board.GetGemAt(PositionInGrid.x - 1, PositionInGrid.y));
-        SetNeighbor(Direction.Right, _board.GetGemAt(PositionInGrid.x + 1, PositionInGrid.y));
-    }
-
-    public void SetNeighbor(Direction dir, Gem neighbor)
-    {
-        Neighbors[dir] = neighbor;
-    }
-
-    private void Break(){
-
-        while(true)
-        {
-            Gem above = Neighbors[Direction.Up];
-            if(above == null)
-            {
-                break;
-            }
-            else
-            {
-                above.Fall();
-            }
-        }
-        _board.RemoveGem(this);
+        _board.BreakGem(this);
     }
 
     public void Fall()
@@ -99,19 +68,17 @@ public class Gem : MonoBehaviour {
         MoveToPosition(PositionInGrid.x, PositionInGrid.y - 1);
     }
 
-    public void MoveToPosition(int x, int y)
+    public Tweener MoveToPosition(int x, int y)
     {
-
         PositionInGrid.x = x;
         PositionInGrid.y = y;
 
         Vector2 pos = CalculateWorldPosition(x, y);
-        transform.DOMove(pos, 0.3f).SetEase(Ease.InQuart);
-        PositionInGrid = new Vector2Int(x, y);
+        return transform.DOMove(pos, 0.3f).SetEase(Ease.InQuart);
     }
 
     private Vector2 CalculateWorldPosition(int gridX, int gridY)
     {
-        return new Vector2(gridX * _width, gridY * _height);
+        return new Vector2(gridX * Width, gridY * Height);
     }
 }

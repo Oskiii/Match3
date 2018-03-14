@@ -1,3 +1,4 @@
+#pragma warning disable 1587
 /// <summary>
 /// AutoSave.cs, editor helper script. Saves the scene ans modified assets when you hit Play in the Unity Editor, so if Unity should 
 /// crash, or similar, you don't lose any scene or assets you haddn't saved before hitting Play.
@@ -7,6 +8,7 @@
 /// Created (date - name): 10th March 2015 - Gavin Thornton
 /// Modified (date - name): 8th Jan 2017 - Gavin Thornton - #if UNITY_EDITOR moved to fix cloud build
 /// </remarks>
+#pragma warning restore 1587
 
 #if UNITY_EDITOR
 using UnityEditor;

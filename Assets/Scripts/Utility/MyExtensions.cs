@@ -61,17 +61,12 @@ public static class MyExtensions
 
 public static class ThreadSafeRandom
 {
-    [ThreadStatic] private static Random Local;
+    [ThreadStatic] private static Random _local;
 
-    public static Random ThisThreadsRandom
-    {
-        get
-        {
-            return Local
-                   ?? (Local = new Random(
-                           unchecked(Environment.TickCount * 31 + Thread.CurrentThread.ManagedThreadId)));
-        }
-    }
+    public static Random ThisThreadsRandom => _local
+                                              ?? (_local = new Random(
+                                                      unchecked(Environment.TickCount * 31
+                                                                + Thread.CurrentThread.ManagedThreadId)));
 }
 
 //Extension class to provide serialize / deserialize methods to object.
