@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DG.Tweening;
+using TMPro;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public enum GemColor
 {
@@ -33,6 +36,7 @@ public class Gem : MonoBehaviour
     };
 
     private Board _board;
+    [SerializeField] private TextMeshProUGUI _debugText;
 
     [SerializeField] private SpriteRenderer _visuals;
 
@@ -42,8 +46,10 @@ public class Gem : MonoBehaviour
 
     private void OnEnable()
     {
-        Color randomColor = _gemColorValues.ElementAt(Random.Range(0, _gemColorValues.Keys.Count)).Value;
-        _visuals.color = randomColor;
+        KeyValuePair<GemColor, Color32> randomGemColor =
+            _gemColorValues.ElementAt(Random.Range(0, _gemColorValues.Keys.Count));
+        _visuals.color = randomGemColor.Value;
+        Color = randomGemColor.Key;
     }
 
     public void OnMouseDown()
@@ -51,11 +57,14 @@ public class Gem : MonoBehaviour
         Break();
     }
 
-    public void Init(Board b, int x, int y)
+    public void Init(Board b, int x, int y, int xPositionOffset = 0, int yPositionOffset = 0)
     {
         _board = b;
         PositionInGrid.Set(x, y);
-        transform.position = CalculateWorldPosition(x, y);
+        transform.position = CalculateWorldPosition(x + xPositionOffset, y + yPositionOffset);
+
+        Tuple<int, int> coords = _board.GemsOnBoard.CoordinatesOf(this);
+        _debugText.text = "Board: " + x + "," + y + "\nArray: " + coords.Item1 + "," + coords.Item2;
     }
 
     private void Break()
@@ -63,15 +72,11 @@ public class Gem : MonoBehaviour
         _board.BreakGem(this);
     }
 
-    public void Fall()
-    {
-        MoveToPosition(PositionInGrid.x, PositionInGrid.y - 1);
-    }
-
     public Tweener MoveToPosition(int x, int y)
     {
-        PositionInGrid.x = x;
-        PositionInGrid.y = y;
+        PositionInGrid.Set(x, y);
+        Tuple<int, int> coords = _board.GemsOnBoard.CoordinatesOf(this);
+        _debugText.text = "Board: " + x + "," + y + "\nArray: " + coords.Item1 + "," + coords.Item2;
 
         Vector2 pos = CalculateWorldPosition(x, y);
         return transform.DOMove(pos, 0.3f).SetEase(Ease.InQuart);

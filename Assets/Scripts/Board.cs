@@ -9,8 +9,8 @@ using UnityEngine;
 public class Board : MonoBehaviour
 {
     private readonly Pool _gemPool = new Pool {size = 100, allowGrowth = true};
-    public readonly int Columns = 5;
-    public readonly int Rows = 5;
+    public readonly int Columns = 7;
+    public readonly int Rows = 7;
 
     [SerializeField] private Gem _gemPrefab;
     public Gem[,] GemsOnBoard { get; private set; }
@@ -27,34 +27,74 @@ public class Board : MonoBehaviour
         _gemPool.Initialize();
     }
 
-    public Gem AddGemAt(int gridX, int gridY)
+    public Gem AddGemAt(int gridX, int gridY, int xPositionOffset = 0, int yPositionOffset = 0)
     {
         var newGem = _gemPool.Spawn<Gem>(Vector3.zero, Quaternion.identity);
         newGem.transform.SetParent(transform);
+        print("add at " + gridX + "," + gridY);
         GemsOnBoard[gridX, gridY] = newGem;
 
-        newGem.Init(this, gridX, gridY);
+
+        newGem.Init(this, gridX, gridY, xPositionOffset, yPositionOffset);
 
         return newGem;
     }
 
+    public List<Tweener> InsertReplacementGems(List<Vector2Int> spotsToReplace)
+    {
+        var moveTweens = new List<Tweener>();
+
+        // Group gems by column
+        spotsToReplace = spotsToReplace.GroupBy(g => g.x)
+                                       .SelectMany(g => g)
+                                       .ToList();
+
+        var currentX = 0;
+        var currentYOffset = 0;
+        foreach (Vector2Int spot in spotsToReplace)
+        {
+            print(spot.x + " " + spot.y);
+            if (spot.x != currentX)
+            {
+                currentX = spot.x;
+                int currentXSpotsCount = spotsToReplace.Count(g => g.x == currentX);
+                currentYOffset = 0;
+
+                if (currentXSpotsCount == 0)
+                {
+                    continue;
+                }
+            }
+
+            print("spawn y: " + (spot.y + Rows - spot.y + currentYOffset));
+            Gem newGem = AddGemAt(spot.x, spot.y, 0, Rows - spot.y + currentYOffset);
+            Tweener moveTween = newGem.MoveToPosition(currentX, spot.y);
+            moveTweens.Add(moveTween);
+
+            currentYOffset++;
+        }
+
+        return moveTweens;
+    }
+
     public void BreakGem(Gem gem)
     {
-        RemoveGemInstant(gem);
+        RemoveGem(gem);
         StartCoroutine(MoveGemsDown());
     }
 
-    private void RemoveGemInstant(Gem gem)
+    private void RemoveGem(Gem gem)
     {
         GemsOnBoard[gem.PositionInGrid.x, gem.PositionInGrid.y] = null;
         _gemPool.Despawn(gem.gameObject);
-
-        OnGemRemoved?.Invoke(gem);
     }
 
     private IEnumerator MoveGemsDown()
     {
+        yield return new WaitForSeconds(0.3f);
+
         var moveTweens = new List<Tweener>();
+        var movedGems = new List<Gem>();
         for (var x = 0; x < Columns; x++)
         {
             int? firstEmpty = null;
@@ -71,17 +111,30 @@ public class Board : MonoBehaviour
                     GemsOnBoard[x, emptyY] = gem;
                     Tweener t = gem.MoveToPosition(x, emptyY);
                     moveTweens.Add(t);
+                    movedGems.Add(gem);
                     GemsOnBoard[x, y] = null;
                     firstEmpty++;
                 }
             }
         }
 
-        print("WAIT");
+        var emptySlots = new List<Vector2Int>();
+        for (var x = 0; x < Columns; x++)
+        {
+            for (var y = 0; y < Rows; y++)
+            {
+                if (GemsOnBoard[x, y] == null)
+                {
+                    emptySlots.Add(new Vector2Int(x, y));
+                }
+            }
+        }
+        List<Tweener> replacementTweens = InsertReplacementGems(emptySlots);
+        moveTweens.AddRange(replacementTweens);
+
         // Wait until all move tweens are done
         yield return new WaitUntil(() => moveTweens.TrueForAll(x => !x.IsPlaying()));
 
-        print("DONE");
         CheckMatches();
     }
 
@@ -94,7 +147,7 @@ public class Board : MonoBehaviour
             matchGems.AddRange(rowMatches);
         }
 
-        for (var column = 0; column < Rows; column++)
+        for (var column = 0; column < Columns; column++)
         {
             List<Gem> columnMatches = FindMatchesInColumn(column);
             matchGems.AddRange(columnMatches);
@@ -102,7 +155,7 @@ public class Board : MonoBehaviour
 
         foreach (Gem gem in matchGems)
         {
-            RemoveGemInstant(gem);
+            RemoveGem(gem);
         }
 
         if (matchGems.Count > 0)
@@ -114,42 +167,88 @@ public class Board : MonoBehaviour
     private List<Gem> FindMatchesInRow(int y)
     {
         var matchGems = new List<Gem>();
-
         var rowGems = new List<Gem>();
 
+        // Get gems in row
         for (var x = 0; x < Columns; x++)
         {
             rowGems.Add(GemsOnBoard[x, y]);
         }
 
-        IEnumerable matches = rowGems.GroupBy(x => x.Color)
-                                     .Where(group => group.Count() > 2)
-                                     .Select(group => group.Key);
-
-        foreach (object match in matches)
+        // No need to check last 2 because they can't start matches
+        for (var x = 0; x < rowGems.Count - 2; x++)
         {
-            print(match);
-        }
-        //// No need to check last 2 because they can't start matches
-        //for (var x = 0; x < Columns - 2; x++)
-        //{
-        //    Gem current = GemsOnBoard[x, y];
-        //    Gem next1 = GemsOnBoard[x + 1, y];
-        //    Gem next2 = GemsOnBoard[x + 2, y];
+            Gem current = rowGems[x];
+            Gem next1 = rowGems[x + 1];
+            Gem next2 = rowGems[x + 2];
 
-        //    GemColor matchColor;
-        //    if (current.Color == next1.Color && current.Color == next2.Color)
-        //    {
-        //        matchColor = current.Color;
-        //    }
-        //}
+            if (current == null)
+            {
+                continue;
+            }
+
+            // Do all 3 gems' colors match?
+            GemColor matchColor = current.Color;
+            bool foundMatch = matchColor == next1?.Color && matchColor == next2?.Color;
+            if (foundMatch)
+            {
+                var match = new List<Gem> {current, next1, next2};
+
+                // Look RIGHT until gem color doesn't match. Add all found to match list
+                var currentIndex = 3;
+                while (x + currentIndex < rowGems.Count && rowGems[x + currentIndex]?.Color == current.Color)
+                {
+                    match.Add(rowGems[x + currentIndex]);
+                    currentIndex++;
+                }
+                matchGems.AddRange(match);
+            }
+        }
 
         return matchGems;
     }
 
-    private List<Gem> FindMatchesInColumn(int column)
+    private List<Gem> FindMatchesInColumn(int x)
     {
         var matchGems = new List<Gem>();
+        var columnGems = new List<Gem>();
+
+        // Get gems in row
+        for (var y = 0; y < Rows; y++)
+        {
+            columnGems.Add(GemsOnBoard[x, y]);
+        }
+
+        // No need to check last 2 because they can't start matches
+        for (var y = 0; y < columnGems.Count - 2; y++)
+        {
+            Gem current = columnGems[y];
+            Gem next1 = columnGems[y + 1];
+            Gem next2 = columnGems[y + 2];
+
+            if (current == null)
+            {
+                continue;
+            }
+
+            // Do all 3 gems' colors match?
+            GemColor matchColor = current.Color;
+            bool foundMatch = matchColor == next1?.Color && matchColor == next2?.Color;
+            if (foundMatch)
+            {
+                var match = new List<Gem> {current, next1, next2};
+
+                // Look UP until gem color doesn't match. Add all found to match list
+                var currentIndex = 3;
+                while (y + currentIndex < columnGems.Count && columnGems[y + currentIndex]?.Color == current.Color)
+                {
+                    match.Add(columnGems[y + currentIndex]);
+                    currentIndex++;
+                }
+                matchGems.AddRange(match);
+            }
+        }
+
         return matchGems;
     }
 }
